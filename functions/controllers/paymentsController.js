@@ -14,9 +14,6 @@ export const createOrder = async (req, res) => {
     const { fileId } = req.body;
     if (!fileId) return res.status(400).json({ message: "fileId required" });
 
-    console.log("Received fileId:", fileId);
-
-    console.log("Fetching file from Supabase:", fileId);
     const { data: file, error } = await supabase
       .from("files")
       .select("id, name, price, gdrive_url, gdrive_file_id")
@@ -27,7 +24,6 @@ export const createOrder = async (req, res) => {
       console.error("createOrder file fetch error:", error?.message);
       return res.status(404).json({ message: "File not found" });
     }
-    console.log("File fetched:", file);
 
     const payload = {
       intent: "CAPTURE",
@@ -46,141 +42,18 @@ export const createOrder = async (req, res) => {
         cancel_url: `${process.env.FRONTEND_URL}/payment/${fileId}`,
       },
     };
-    console.log("Creating PayPal order with payload:", payload);
 
     const order = await client().execute({
       endpoint: "/v2/checkout/orders",
       requestBody: payload,
     });
 
-    console.log("PayPal order created:", order.result.id);
     return res.json({ id: order.result.id });
   } catch (err) {
     console.error("createOrder error:", err);
     return res.status(500).json({ message: "Failed to create order" });
   }
 };
-
-// ---------------- CAPTURE ORDER ----------------
-// export const captureOrder = async (req, res) => {
-//   try {
-//     const { orderId, fileId } = req.body;
-//     if (!orderId || !fileId) {
-//       console.error("Missing orderId or fileId in request body");
-//       return res.status(400).json({ message: "Missing params" });
-//     }
-//     if (!req.user || !req.user.id) {
-//       console.error("Authentication required: user not found in request");
-//       return res.status(401).json({ message: "Authentication required" });
-//     }
-
-//     console.log("Capturing PayPal order:", orderId);
-
-//     // Step 1: Capture the order via PayPal
-//     const capture = await client().execute({
-//       endpoint: `/v2/checkout/orders/${orderId}/capture`,
-//     });
-
-//     console.log("Raw PayPal capture response:", capture);
-
-//     if (!capture?.result) {
-//       console.error("No result returned from PayPal capture");
-//       return res.status(500).json({ message: "PayPal capture failed" });
-//     }
-
-//     const status = capture.result.status;
-//     console.log("Order capture status:", status);
-
-//     let downloadToken = null;
-//     let paymentId = null;
-
-//     const payerEmail =
-//       capture.result.payer?.email_address ||
-//       req.user.email ||
-//       "unknown@example.com";
-
-//     // Step 2: Only insert payment & download if COMPLETED
-//     if (status === "COMPLETED") {
-//       const captureUnit = capture.result.purchase_units?.[0];
-//       const captureObj = captureUnit?.payments?.captures?.[0];
-//       const amount =
-//         captureObj?.amount?.value ?? captureUnit?.amount?.value ?? "0";
-
-//       console.log("Captured amount:", amount);
-
-//       // Step 3: Insert payment row
-//       const { data: insertedPayments, error: payErr } = await supabase
-//         .from("payments")
-//         .insert([
-//           {
-//             user_id: req.user.id,
-//             file_id: fileId,
-//             paypal_order_id: orderId,
-//             amount,
-//             status: "completed",
-//             payment_method: "paypal",
-//             payer_email: payerEmail,
-//           },
-//         ])
-//         .select("*")
-//         .single();
-
-//       if (payErr) {
-//         console.error("Supabase insert payment error:", payErr);
-//         return res
-//           .status(500)
-//           .json({ message: "Failed to insert payment row" });
-//       }
-
-//       paymentId = insertedPayments.id;
-//       console.log("Inserted payment ID:", paymentId);
-
-//       // Step 4: Insert download row
-//       const token = crypto.randomBytes(24).toString("hex");
-//       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-//       const { error: dlErr } = await supabase.from("downloads").insert([
-//         {
-//           user_id: req.user.id,
-//           file_id: fileId,
-//           download_url: token,
-//           downloaded: false,
-//           download_count: 0,
-//           expires_at: expiresAt,
-//           payment_id: paymentId,
-//         },
-//       ]);
-
-//       if (dlErr) {
-//         console.error("Supabase insert download error:", dlErr);
-//         return res
-//           .status(500)
-//           .json({ message: "Failed to insert download row" });
-//       }
-
-//       downloadToken = token;
-//       console.log("Download token created:", downloadToken);
-//     } else {
-//       console.warn("PayPal capture status not completed:", status);
-//       await supabase.from("payments").insert([
-//         {
-//           user_id: req.user.id,
-//           file_id: fileId,
-//           paypal_order_id: orderId,
-//           amount: 0,
-//           status: status.toLowerCase(),
-//           payment_method: "paypal",
-//           payer_email: payerEmail,
-//         },
-//       ]);
-//     }
-
-//     return res.json({ status, downloadToken });
-//   } catch (err) {
-//     console.error("captureOrder error:", err);
-//     return res.status(500).json({ message: "Error capturing payment" });
-//   }
-// };
 
 export const captureOrder = async (req, res) => {
   try {
@@ -194,14 +67,10 @@ export const captureOrder = async (req, res) => {
       return res.status(401).json({ message: "Authentication required" });
     }
 
-    console.log("Capturing PayPal order:", orderId);
-
     // Step 1: Capture the order via PayPal
     const capture = await client().execute({
       endpoint: `/v2/checkout/orders/${orderId}/capture`,
     });
-
-    console.log("Raw PayPal capture response:", capture);
 
     if (!capture?.result) {
       console.error("No result returned from PayPal capture");
@@ -209,7 +78,6 @@ export const captureOrder = async (req, res) => {
     }
 
     const status = capture.result.status;
-    console.log("Order capture status:", status);
 
     let downloadToken = null;
     let paymentId = null;
@@ -224,8 +92,6 @@ export const captureOrder = async (req, res) => {
       const captureObj = captureUnit?.payments?.captures?.[0];
       const amount =
         captureObj?.amount?.value ?? captureUnit?.amount?.value ?? "0";
-
-      console.log("Captured amount:", amount);
 
       // Step 2: Insert payment row
       const { data: insertedPayments, error: payErr } = await supabase
@@ -252,7 +118,6 @@ export const captureOrder = async (req, res) => {
       }
 
       paymentId = insertedPayments.id;
-      console.log("Inserted payment ID:", paymentId);
 
       // Step 3: Insert download row
       const token = crypto.randomBytes(24).toString("hex");
@@ -278,7 +143,6 @@ export const captureOrder = async (req, res) => {
       }
 
       downloadToken = token;
-      console.log("Download token created:", downloadToken);
 
       // Step 4: Send payment success email
       try {
@@ -327,7 +191,7 @@ export const captureOrder = async (req, res) => {
     console.error("captureOrder error:", err);
     return res.status(500).json({ message: "Error capturing payment" });
   }
-};  
+};
 
 // ---------------- CHECK PAYMENT ----------------
 export const checkPayment = async (req, res) => {

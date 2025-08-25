@@ -1,5 +1,7 @@
 # Node modules
 node_modules/
+functions/node_modules/
+functions/*.env
 
 # Environment variables
 .env
