@@ -7,13 +7,8 @@ const PAYPAL_BASE =
 
 export default function client() {
   return {
-    /**
-     * Execute a PayPal request
-     * @param {Object} request - { endpoint, requestBody, method }
-     */
     execute: async ({ endpoint, requestBody = {}, method = "POST" }) => {
       try {
-        console.log("Fetching PayPal access token...");
         // Get access token
         const authRes = await fetch(`${PAYPAL_BASE}/v1/oauth2/token`, {
           method: "POST",
@@ -28,13 +23,11 @@ export default function client() {
           body: "grant_type=client_credentials",
         });
         const tokenData = await authRes.json();
-        console.log("PayPal token response:", tokenData);
 
         // Call PayPal endpoint
         const url = endpoint.startsWith("http")
           ? endpoint
           : `${PAYPAL_BASE}${endpoint}`;
-        console.log("Calling PayPal endpoint:", url);
 
         const res = await fetch(url, {
           method,
@@ -46,7 +39,7 @@ export default function client() {
         });
 
         const result = await res.json();
-        console.log("PayPal response:", result);
+
         return { result };
       } catch (err) {
         console.error("PayPal client error:", err);

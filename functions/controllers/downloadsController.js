@@ -92,6 +92,7 @@ export const downloadFile = async (req, res) => {
       } else {
         try {
           await sendFileDownloadSuccessEmail(userDetails, file);
+          console.log("Download success email sent for", userDetails.full_name);
         } catch (emailError) {
           console.error("Error in sending Email:", emailError);
         }
@@ -169,16 +170,51 @@ export const downloadAgain = async (req, res) => {
         .json({ message: "Payment not completed or access forbidden" });
     }
 
+    // Insert download token
+    const token = crypto.randomBytes(24).toString("hex");
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    const { error: upErr } = await supabase
+      .from("downloads")
+      .update([
+        {
+          download_url: token,
+          expires_at: expiresAt,
+        },
+      ])
+      .eq("user_id", userId)
+      .eq("file_id", fileId)
+      .eq("payment_id", paymentId)
+      .single();
+
+    if (upErr) {
+      console.error("Supabase update download error:", upErr);
+      return res
+        .status(500)
+        .json({ message: "Failed to update download row with download token" });
+    }
+
     const { data: downloadRow, error: dlErr } = await supabase
       .from("downloads")
       .select("*")
+      .eq("download_url", token)
       .eq("payment_id", paymentId)
       .single();
 
     if (dlErr || !downloadRow) {
-      return res
-        .status(404)
-        .json({ message: "Download record not found for this payment" });
+      return res.status(404).json({
+        message:
+          "Download record not found for this payment | Invalid or expired token",
+      });
+    }
+
+    if (new Date(downloadRow.expires_at) < new Date()) {
+      return res.status(403).json({ message: "Token expired" });
+    }
+
+    if (downloadRow.user_id !== userId) {
+      console.warn(`Attempted download with token mismatch for user ${userId}`);
+      return res.status(403).json({ message: "Access forbidden." });
     }
 
     const { data: file, error: fileErr } = await supabase

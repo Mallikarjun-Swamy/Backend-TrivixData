@@ -1,6 +1,7 @@
 import express from "express";
 import { authMiddleware } from "../middleware/authMiddleware.js";
 import {
+  createDownload,
   createUser,
   deleteUser,
   fetchAllDownloads,
@@ -19,6 +20,7 @@ const isAdmin = (req, res, next) => {
 
 // Admin creates verified user
 router.post("/create-user", authMiddleware, isAdmin, createUser);
+router.post("/create-download", authMiddleware, isAdmin, createDownload);
 router.get("/users", authMiddleware, isAdmin, fetchAllUsers);
 router.put("/update-user/:id", authMiddleware, isAdmin, updateUser);
 router.delete("/delete-user/:id", authMiddleware, isAdmin, deleteUser);

@@ -1,4 +1,286 @@
-// utils/invoiceGenerator.js
+// import PDFDocument from "pdfkit";
+// import fs from "fs";
+// import path from "path";
+
+// // Design constants
+// const MARGIN = 50;
+// const PAGE_WIDTH = 595.28;
+// const CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN;
+
+// // Color Palette
+// const COLORS = {
+//   primary: "#303030", // Dark gray
+//   secondary: "#635BFF", // Stripe-like purple
+//   text: "#525252", // Medium gray
+//   line: "#e6e6e6", // Light gray
+//   background: "#ffffff", // Pure white
+// };
+
+// export const generateInvoice = async (invoiceData) => {
+//   const { invoiceNumber, user, payment, file } = invoiceData;
+
+//   const doc = new PDFDocument({ size: "A4", margin: MARGIN });
+//   const invoicePath = path.join("tmp", `invoice-${invoiceNumber}.pdf`);
+//   doc.pipe(fs.createWriteStream(invoicePath));
+
+//   // Helper functions for drawing rounded rectangles with a single fill and stroke
+//   const drawRoundedRect = (x, y, width, height, radius) => {
+//     doc
+//       .roundedRect(x, y, width, height, radius)
+//       .fillAndStroke(COLORS.background, COLORS.line);
+//   };
+
+//   const formattedDate = new Intl.DateTimeFormat("en-US", {
+//     day: "numeric",
+//     month: "long",
+//     year: "numeric",
+//   }).format(new Date());
+
+//   // === HEADER SECTION ===
+//   const headerHeight = 100;
+//   // drawRoundedRect(MARGIN - 15, MARGIN, CONTENT_WIDTH + 30, headerHeight, 4);
+
+//   const logoPath = path.join("utils", "logo-bg.png");
+//   const logoWidth = 120;
+//   const logoX = PAGE_WIDTH - MARGIN - logoWidth - 0; // Adjusted to be 15px from the right edge of the header box
+//   const logoY = MARGIN + 10;
+
+//   if (fs.existsSync(logoPath)) {
+//     doc.image(logoPath, logoX, logoY, { width: logoWidth });
+//   }
+
+//   // Invoice title and details
+//   const detailY = MARGIN + 15;
+//   doc
+//     .font("Helvetica-Bold")
+//     .fontSize(22)
+//     .fillColor(COLORS.primary)
+//     .text("INVOICE", MARGIN, detailY, {
+//       width: CONTENT_WIDTH - 30,
+//     });
+
+//   doc
+//     .font("Helvetica")
+//     .fontSize(10)
+//     .fillColor(COLORS.text)
+//     .text(`Invoice # : ${invoiceNumber}`, MARGIN, detailY + 30, {
+//       width: CONTENT_WIDTH - 30,
+//     })
+//     .text(`Date : ${new Date().toLocaleDateString()}`, MARGIN, detailY + 45, {
+//       width: CONTENT_WIDTH - 30,
+//     });
+
+//   if (payment.paypal_order_id || payment.id) {
+//     doc.text(
+//       `Transaction ID : ${payment.paypal_order_id || payment.id}`,
+//       MARGIN,
+//       detailY + 60,
+//       {
+//         width: CONTENT_WIDTH - 30,
+//       }
+//     );
+//   }
+//   // ---
+
+//   // === BILLING INFO & DUE AMOUNT ===
+//   const billToY = MARGIN + 100;
+
+//   // === CUSTOMER & COMPANY INFO ===
+//   const infoY = MARGIN + headerHeight + 20;
+
+//   // Bill To (Left side)
+//   doc
+//     .font("Helvetica-Bold")
+//     .fontSize(12)
+//     .fillColor(COLORS.primary)
+//     .text("Bill To:", MARGIN, infoY);
+//   doc
+//     .font("Helvetica")
+//     .fontSize(10)
+//     .fillColor(COLORS.text)
+//     .text(user.full_name, MARGIN, infoY + 15)
+//     .text(user.email, MARGIN, infoY + 30)
+//     .text(
+//       `${
+//         user.address +
+//           ", " +
+//           user.city +
+//           ", " +
+//           user.state +
+//           " - " +
+//           user.zip_code +
+//           " " +
+//           user.country || ""
+//       }`,
+//       MARGIN,
+//       infoY + 45
+//     );
+
+//   // From (Right side)
+//   doc
+//     .font("Helvetica-Bold")
+//     .fontSize(12)
+//     .fillColor(COLORS.primary)
+//     .text("From:", PAGE_WIDTH - MARGIN - 150, infoY, {
+//       align: "right",
+//       width: 150,
+//     });
+//   doc
+//     .font("Helvetica")
+//     .fontSize(10)
+//     .fillColor(COLORS.text)
+//     .text("Trivix Data Solutions", PAGE_WIDTH - MARGIN - 150, infoY + 15, {
+//       align: "right",
+//       width: 150,
+//     })
+//     .text(
+//       "accounts@trivixdatasolutions.com",
+//       PAGE_WIDTH - MARGIN - 160,
+//       infoY + 30,
+//       {
+//         align: "right",
+//         width: 160,
+//       }
+//     )
+//     .text(
+//       `22nd Street, Sacramento, CA 95811 USA`,
+//       PAGE_WIDTH - MARGIN - 200,
+//       infoY + 45,
+//       {
+//         align: "right",
+//         width: 200,
+//       }
+//     );
+
+//   // Due amount section
+//   const amountDueY = billToY + 70;
+//   const paidStatusY = infoY + 100;
+//   doc
+//     .font("Helvetica-Bold")
+//     .fontSize(20)
+//     .fillColor(COLORS.primary)
+//     .text(
+//       `$${Number(payment.amount).toFixed(2)} Paid on ${formattedDate}`,
+//       MARGIN,
+//       paidStatusY
+//     );
+//   doc
+//     .font("Helvetica")
+//     .fontSize(12)
+//     .fillColor(COLORS.text)
+//     .text("Thanks for doing business with us!", MARGIN, amountDueY + 90);
+
+//   // ---
+
+//   // === ITEMS TABLE ===
+//   const tableY = amountDueY + 130;
+//   const colWidths = [
+//     CONTENT_WIDTH * 0.5,
+//     CONTENT_WIDTH * 0.15,
+//     CONTENT_WIDTH * 0.15,
+//     CONTENT_WIDTH * 0.2,
+//   ];
+
+//   // Table header
+//   doc
+//     .strokeColor(COLORS.line)
+//     .lineWidth(1)
+//     .moveTo(MARGIN, tableY - 10)
+//     .lineTo(MARGIN + CONTENT_WIDTH, tableY - 10)
+//     .stroke();
+
+//   doc.font("Helvetica-Bold").fontSize(10).fillColor(COLORS.text);
+//   doc.text("Description", MARGIN, tableY);
+//   doc.text("Qty", MARGIN + colWidths[0], tableY, {
+//     width: colWidths[1],
+//     align: "right",
+//   });
+//   doc.text("Unit price", MARGIN + colWidths[0] + colWidths[1], tableY, {
+//     width: colWidths[2],
+//     align: "right",
+//   });
+//   doc.text(
+//     "Amount",
+//     MARGIN + colWidths[0] + colWidths[1] + colWidths[2],
+//     tableY,
+//     { width: colWidths[3], align: "right" }
+//   );
+
+//   doc
+//     .strokeColor(COLORS.line)
+//     .lineWidth(1)
+//     .moveTo(MARGIN, tableY + 15)
+//     .lineTo(MARGIN + CONTENT_WIDTH, tableY + 15)
+//     .stroke();
+
+//   // Item row
+//   const itemY = tableY + 25;
+//   doc.font("Helvetica").fontSize(10).fillColor(COLORS.text);
+//   doc.text(file.name, MARGIN, itemY);
+//   doc.text("1", MARGIN + colWidths[0], itemY, {
+//     width: colWidths[1],
+//     align: "right",
+//   });
+//   doc.text(
+//     `$${Number(payment.amount).toFixed(2)}`,
+//     MARGIN + colWidths[0] + colWidths[1],
+//     itemY,
+//     { width: colWidths[2], align: "right" }
+//   );
+//   doc.text(
+//     `$${Number(payment.amount).toFixed(2)}`,
+//     MARGIN + colWidths[0] + colWidths[1] + colWidths[2],
+//     itemY,
+//     { width: colWidths[3], align: "right" }
+//   );
+
+//   // ---
+
+//   // === TOTALS SECTION ===
+//   const totalsY = itemY + 50;
+//   const totalsX = MARGIN + CONTENT_WIDTH / 2;
+//   const totalsLabelWidth = 100;
+//   const totalsValueWidth = 100;
+
+//   doc.font("Helvetica").fontSize(10).fillColor(COLORS.text);
+//   doc.text("Subtotal", totalsX, totalsY, { width: totalsLabelWidth });
+//   doc.text(
+//     `$${Number(payment.amount).toFixed(2)}`,
+//     totalsX + totalsLabelWidth + 20,
+//     totalsY,
+//     { width: totalsValueWidth, align: "right" }
+//   );
+
+//   doc.text("Total", totalsX, totalsY + 20, { width: totalsLabelWidth });
+//   doc.text(
+//     `$${Number(payment.amount).toFixed(2)}`,
+//     totalsX + totalsLabelWidth + 20,
+//     totalsY + 20,
+//     { width: totalsValueWidth, align: "right" }
+//   );
+
+//   doc
+//     .font("Helvetica-Bold")
+//     .fontSize(10)
+//     .fillColor(COLORS.primary)
+//     .text("Total Paid", totalsX, totalsY + 40, { width: totalsLabelWidth });
+//   doc
+//     .font("Helvetica-Bold")
+//     .fontSize(10)
+//     .fillColor(COLORS.primary)
+//     .text(
+//       `$${Number(payment.amount).toFixed(2)}`,
+//       totalsX + totalsLabelWidth + 20,
+//       totalsY + 40,
+//       { width: totalsValueWidth, align: "right" }
+//     );
+
+//   // ---
+
+//   doc.end();
+//   return invoicePath;
+// };
+
 import PDFDocument from "pdfkit";
 import fs from "fs";
 import path from "path";
@@ -7,7 +289,6 @@ import path from "path";
 const MARGIN = 50;
 const PAGE_WIDTH = 595.28;
 const CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN;
-const PADDING = 15;
 
 // Color Palette
 const COLORS = {
@@ -25,57 +306,67 @@ export const generateInvoice = async (invoiceData) => {
   const invoicePath = path.join("tmp", `invoice-${invoiceNumber}.pdf`);
   doc.pipe(fs.createWriteStream(invoicePath));
 
-  // Helper function for drawing rounded rectangles using the correct method
+  // Helper functions for drawing rounded rectangles with a single fill and stroke
   const drawRoundedRect = (x, y, width, height, radius) => {
-    doc.roundedRect(x, y, width, height, radius);
+    doc
+      .roundedRect(x, y, width, height, radius)
+      .fillAndStroke(COLORS.background, COLORS.line);
   };
+
+  const formattedDate = new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date());
 
   // === HEADER SECTION ===
   const headerHeight = 100;
-  drawRoundedRect(MARGIN, MARGIN, CONTENT_WIDTH, headerHeight, 5);
-  doc.fill(COLORS.background).stroke(COLORS.line).fillAndStroke();
+  // drawRoundedRect(MARGIN - 15, MARGIN, CONTENT_WIDTH + 30, headerHeight, 4);
 
   const logoPath = path.join("utils", "logo-bg.png");
+  const logoWidth = 120;
+  const logoX = PAGE_WIDTH - MARGIN - logoWidth - 0; // Adjusted to be 15px from the right edge of the header box
+  const logoY = MARGIN + 10;
+
   if (fs.existsSync(logoPath)) {
-    doc.image(logoPath, MARGIN + PADDING, MARGIN + PADDING, { width: 120 });
+    doc.image(logoPath, logoX, logoY, { width: logoWidth });
   }
 
-  // Invoice title
+  // Invoice title and details
+  const detailY = MARGIN + 15;
   doc
     .font("Helvetica-Bold")
     .fontSize(22)
     .fillColor(COLORS.primary)
-    .text("INVOICE", MARGIN + PADDING, MARGIN + PADDING + 5, {
-      align: "right",
-      width: CONTENT_WIDTH - 2 * PADDING,
+    .text("INVOICE", MARGIN, detailY, {
+      width: CONTENT_WIDTH - 30,
     });
 
-  // Invoice details within the header
-  const detailY = MARGIN + PADDING + 30;
   doc
     .font("Helvetica")
     .fontSize(10)
     .fillColor(COLORS.text)
-    .text(`Invoice #: ${invoiceNumber}`, MARGIN + PADDING, detailY, {
-      align: "right",
-      width: CONTENT_WIDTH - 2 * PADDING,
+    .text(`Invoice # : ${invoiceNumber}`, MARGIN, detailY + 30, {
+      width: CONTENT_WIDTH - 30,
     })
-    .text(
-      `Date: ${new Date().toLocaleDateString()}`,
-      MARGIN + PADDING,
-      detailY + 15,
-      { align: "right", width: CONTENT_WIDTH - 2 * PADDING }
-    );
+    .text(`Date : ${new Date().toLocaleDateString()}`, MARGIN, detailY + 45, {
+      width: CONTENT_WIDTH - 30,
+    });
 
-  // Handle transaction ID, which might not always exist
   if (payment.paypal_order_id || payment.id) {
     doc.text(
-      `Trans ID: ${payment.paypal_order_id || payment.id}`,
-      MARGIN + PADDING,
-      detailY + 30,
-      { align: "right", width: CONTENT_WIDTH - 2 * PADDING }
+      `Transaction ID : ${payment.paypal_order_id || payment.id}`,
+      MARGIN,
+      detailY + 60,
+      {
+        width: CONTENT_WIDTH - 30,
+      }
     );
   }
+  // ---
+
+  // === BILLING INFO & DUE AMOUNT ===
+  const billToY = MARGIN + 100;
 
   // === CUSTOMER & COMPANY INFO ===
   const infoY = MARGIN + headerHeight + 20;
@@ -91,7 +382,22 @@ export const generateInvoice = async (invoiceData) => {
     .fontSize(10)
     .fillColor(COLORS.text)
     .text(user.full_name, MARGIN, infoY + 15)
-    .text(user.email, MARGIN, infoY + 30);
+    .text(user.email, MARGIN, infoY + 30)
+    .text(
+      `${
+        user.address +
+          ", " +
+          user.city +
+          ", " +
+          user.state +
+          " " +
+          user.zip_code +
+          " " +
+          user.country || ""
+      }`,
+      MARGIN,
+      infoY + 45
+    );
 
   // From (Right side)
   doc
@@ -111,144 +417,199 @@ export const generateInvoice = async (invoiceData) => {
       width: 150,
     })
     .text(
-      "support@trivixdatasolutions.com",
-      PAGE_WIDTH - MARGIN - 150,
+      "accounts@trivixdatasolutions.com",
+      PAGE_WIDTH - MARGIN - 160,
       infoY + 30,
       {
         align: "right",
-        width: 150,
+        width: 160,
+      }
+    )
+    .text(
+      `22nd Street, Sacramento, CA 95811 USA`,
+      PAGE_WIDTH - MARGIN - 200,
+      infoY + 45,
+      {
+        align: "right",
+        width: 200,
       }
     );
 
-  // === ITEMS TABLE ===
-  const tableY = infoY + 70;
-  const rowHeight = 25;
-  const colWidths = {
-    description: CONTENT_WIDTH * 0.5,
-    qty: CONTENT_WIDTH * 0.1,
-    unitPrice: CONTENT_WIDTH * 0.15,
-    tax: CONTENT_WIDTH * 0.1,
-    total: CONTENT_WIDTH * 0.15,
-  };
-
-  // Table Header
-  drawRoundedRect(MARGIN, tableY, CONTENT_WIDTH, rowHeight, 3);
-  doc.fill(COLORS.background).stroke(COLORS.line).fillAndStroke();
-
-  let currentX = MARGIN;
-  doc.font("Helvetica-Bold").fontSize(10).fillColor(COLORS.primary);
-  doc.text("Description", currentX + PADDING, tableY + 8);
-  currentX += colWidths.description;
-  doc.text("Qty", currentX, tableY + 8, {
-    width: colWidths.qty,
-    align: "center",
-  });
-  currentX += colWidths.qty;
-  doc.text("Unit Price", currentX, tableY + 8, {
-    width: colWidths.unitPrice,
-    align: "right",
-  });
-  currentX += colWidths.unitPrice;
-  doc.text("Tax", currentX, tableY + 8, {
-    width: colWidths.tax,
-    align: "right",
-  });
-  currentX += colWidths.tax;
-  doc.text("Total", currentX, tableY + 8, {
-    width: colWidths.total - PADDING,
-    align: "right",
-  });
-
-  // Item Row
-  const itemY = tableY + rowHeight;
-  const quantity = 1;
-  const totalReceived = Number(payment.amount);
-  const unitPriceWithoutTax = (totalReceived - totalReceived * 0.1).toFixed(2);
-  const tax = (totalReceived * 0.1).toFixed(2);
-
-  doc.font("Helvetica").fontSize(10).fillColor(COLORS.text);
-  currentX = MARGIN;
-  doc.text(file.name, currentX + PADDING, itemY + 8, {
-    width: colWidths.description,
-  });
-  currentX += colWidths.description;
-  doc.text(quantity, currentX, itemY + 8, {
-    width: colWidths.qty,
-    align: "center",
-  });
-  currentX += colWidths.qty;
-  doc.text(`$${unitPriceWithoutTax}`, currentX, itemY + 8, {
-    width: colWidths.unitPrice,
-    align: "right",
-  });
-  currentX += colWidths.unitPrice;
-  doc.text(`$${tax}`, currentX, itemY + 8, {
-    width: colWidths.tax,
-    align: "right",
-  });
-  currentX += colWidths.tax;
-  doc.text(`$${totalReceived.toFixed(2)}`, currentX, itemY + 8, {
-    width: colWidths.total - PADDING,
-    align: "right",
-  });
-
-  // === TOTALS SECTION (Corrected Spacing) ===
-  const totalsY = itemY + rowHeight + 20;
-  const totalsX = PAGE_WIDTH - MARGIN - 200;
-  const totalsWidth = 200;
-  const labelX = MARGIN + 250; // New X position for labels
-  const valueX = totalsX; // X position for values (remains the same)
-
-  doc.font("Helvetica").fontSize(12).fillColor(COLORS.text);
-  doc.text("Subtotal", labelX, totalsY);
-  doc.text(`$${unitPriceWithoutTax}`, valueX, totalsY, {
-    width: totalsWidth,
-    align: "right",
-  });
-
-  doc.text("Tax (10%)", labelX, totalsY + 20);
-  doc.text(`$${tax}`, valueX, totalsY + 20, {
-    width: totalsWidth,
-    align: "right",
-  });
-
-  // Final Total
-  drawRoundedRect(totalsX, totalsY + 45, totalsWidth, 30, 3);
-  doc.fill(COLORS.background).stroke(COLORS.line).fillAndStroke();
+  // Due amount section
+  const amountDueY = billToY + 70;
+  const paidStatusY = infoY + 100;
   doc
     .font("Helvetica-Bold")
-    .fontSize(14)
+    .fontSize(20)
     .fillColor(COLORS.primary)
-    .text("TOTAL", labelX, totalsY + 53); // Moved "TOTAL" label left
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(14)
-    .fillColor(COLORS.secondary)
-    .text(`$${totalReceived.toFixed(2)}`, valueX, totalsY + 53, {
-      width: totalsWidth,
-      align: "right",
-    });
-
-  // === FOOTER ===
-  const footerY = doc.page.height - MARGIN - 40;
+    .text(
+      `$${Number(payment.amount).toFixed(2)} Paid on ${formattedDate}`,
+      MARGIN,
+      paidStatusY
+    );
   doc
     .font("Helvetica")
-    .fontSize(9)
+    .fontSize(12)
+    .fillColor(COLORS.text)
+    .text("Thanks for doing business with us!", MARGIN, amountDueY + 90);
+
+  // ---
+
+  // === ITEMS TABLE ===
+  const tableY = amountDueY + 130;
+  const colWidths = [
+    CONTENT_WIDTH * 0.5,
+    CONTENT_WIDTH * 0.15,
+    CONTENT_WIDTH * 0.15,
+    CONTENT_WIDTH * 0.2,
+  ];
+
+  // Table header
+  doc
+    .strokeColor(COLORS.line)
+    .lineWidth(1)
+    .moveTo(MARGIN, tableY - 10)
+    .lineTo(MARGIN + CONTENT_WIDTH, tableY - 10)
+    .stroke();
+
+  doc.font("Helvetica-Bold").fontSize(10).fillColor(COLORS.text);
+  doc.text("Item Description", MARGIN, tableY);
+  doc.text("Qty", MARGIN + colWidths[0] - 30, tableY, {
+    width: colWidths[1],
+    align: "right",
+  });
+  doc.text("Unit price", MARGIN + colWidths[0] + colWidths[1], tableY, {
+    width: colWidths[2],
+    align: "right",
+  });
+  doc.text(
+    "Amount",
+    MARGIN + colWidths[0] + colWidths[1] + colWidths[2],
+    tableY,
+    { width: colWidths[3], align: "right" }
+  );
+
+  doc
+    .strokeColor(COLORS.line)
+    .lineWidth(1)
+    .moveTo(MARGIN, tableY + 15)
+    .lineTo(MARGIN + CONTENT_WIDTH, tableY + 15)
+    .stroke();
+
+  // Item row
+  const itemY = tableY + 25;
+  doc.font("Helvetica").fontSize(10).fillColor(COLORS.text);
+  doc.text(file.name, MARGIN, itemY);
+  doc.text("1", MARGIN + colWidths[0], itemY, {
+    width: colWidths[1],
+    align: "center",
+  });
+  doc.text(
+    `$${Number(payment.amount).toFixed(2)}`,
+    MARGIN + colWidths[0] + colWidths[1],
+    itemY,
+    { width: colWidths[2], align: "right" }
+  );
+  doc.text(
+    `$${Number(payment.amount).toFixed(2)}`,
+    MARGIN + colWidths[0] + colWidths[1] + colWidths[2],
+    itemY,
+    { width: colWidths[3], align: "right" }
+  );
+
+  // ---
+
+  // === TOTALS SECTION ===
+  const totalsY = itemY + 50;
+  const totalsX = MARGIN + CONTENT_WIDTH / 2;
+  const totalsLabelWidth = 100;
+  const totalsValueWidth = 100;
+
+  doc.font("Helvetica").fontSize(10).fillColor(COLORS.text);
+  doc.text("Subtotal", totalsX, totalsY, { width: totalsLabelWidth });
+  doc.text(
+    `$${Number(payment.amount).toFixed(2)}`,
+    totalsX + totalsLabelWidth + 20,
+    totalsY,
+    { width: totalsValueWidth, align: "right" }
+  );
+
+  doc.text("Total", totalsX, totalsY + 20, { width: totalsLabelWidth });
+  doc.text(
+    `$${Number(payment.amount).toFixed(2)}`,
+    totalsX + totalsLabelWidth + 20,
+    totalsY + 20,
+    { width: totalsValueWidth, align: "right" }
+  );
+
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(10)
+    .fillColor(COLORS.primary)
+    .text("Total Paid", totalsX, totalsY + 40, { width: totalsLabelWidth });
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(10)
+    .fillColor(COLORS.primary)
+    .text(
+      `$${Number(payment.amount).toFixed(2)}`,
+      totalsX + totalsLabelWidth + 20,
+      totalsY + 40,
+      { width: totalsValueWidth, align: "right" }
+    );
+
+  // === ADDITIONAL ACCOUNTS CONTENT ===
+  const contentY = totalsY + 100;
+  doc
+    .font("Helvetica")
+    .fontSize(10)
     .fillColor(COLORS.text)
     .text(
-      "This invoice is electronically generated and valid without a signature. Thank you for your business.",
+      "This invoice serves as a record of your payment and is a testament to the successful completion of the ",
       MARGIN,
-      footerY,
-      { align: "center", width: CONTENT_WIDTH }
+      contentY + 80,
+      {
+        width: CONTENT_WIDTH,
+      }
+    )
+    .text(
+      "transaction. For all billing and accounts-related inquiries, please contact us at the details provided above.",
+      MARGIN,
+      contentY + 95,
+      {
+        width: CONTENT_WIDTH,
+      }
     );
 
   // === WATERMARK ===
   doc
     .fontSize(60)
     .fillColor(COLORS.text)
-    .opacity(0.02)
-    .text("TRIVIX", 0, 350, { align: "center" });
+    .opacity(0.05)
+    .rotate(-45, { origin: [doc.page.width / 2, doc.page.height / 2] })
+    .text("TRIVIX DATA SOLUTIONS", 0, 350, { align: "center" })
+    .rotate(45, { origin: [doc.page.width / 2, doc.page.height / 2] });
+
   doc.opacity(1);
+
+  // === FOOTER ===
+  doc
+    .strokeColor(COLORS.line)
+    .lineWidth(1)
+    .moveTo(MARGIN, tableY + 390)
+    .lineTo(MARGIN + CONTENT_WIDTH + 20, tableY + 390)
+    .stroke();
+  const footerY = doc.page.height - MARGIN - 40;
+  doc
+    .font("Helvetica")
+    .fontSize(9)
+    .fillColor(COLORS.text)
+    .text(
+      "Trivix Data Solutions - 22nd Street, Sacramento, CA 95811 USA • All Rights Reserved",
+      MARGIN,
+      footerY,
+      { align: "center", width: CONTENT_WIDTH }
+    );
 
   doc.end();
   return invoicePath;

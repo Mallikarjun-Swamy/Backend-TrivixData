@@ -171,3 +171,88 @@ export const fetchAllPayments = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch payments." });
   }
 };
+
+//for Custom user
+export const createDownload = async (req, res) => {
+  try {
+    const {
+      user_id,
+      file_id,
+      paypal_order_id,
+      amount,
+      payer_email,
+      payment_status,
+      download_status,
+    } = req.body;
+
+    // 1. Improved Input Validation
+    if (
+      !user_id ||
+      !file_id ||
+      !paypal_order_id ||
+      !amount ||
+      !payer_email ||
+      !payment_status ||
+      download_status
+    ) {
+      return res
+        .status(400)
+        .json({ message: "All required fields are missing." });
+    }
+
+    // 2. Insert into 'payments' table
+    const { data: newPayment, error: paymentError } = await supabase
+      .from("payments")
+      .insert([
+        {
+          user_id,
+          file_id,
+          paypal_order_id,
+          amount,
+          payer_email,
+          status: payment_status,
+        },
+      ])
+      .select()
+      .single();
+
+    if (paymentError) {
+      // 3. Specific and Correct Error Logging
+      console.error("Supabase payment creation error:", paymentError.message);
+      return res
+        .status(500)
+        .json({ message: "Failed to create payment record." });
+    }
+
+    const paymentId = newPayment.id;
+
+    // 4. Insert into 'downloads' table
+    const { data: newDownload, error: downloadError } = await supabase
+      .from("downloads")
+      .insert([
+        {
+          user_id,
+          file_id,
+          payment_id: paymentId,
+          downloaded: download_status,
+        },
+      ])
+      .select()
+      .single();
+
+    if (downloadError) {
+      // 5. Correct Error Variable and Message
+      console.error("Supabase download creation error:", downloadError.message);
+      return res
+        .status(500)
+        .json({ message: "Failed to create download record." });
+    }
+
+    // 6. Successful response
+    res.json({ success: true, download: newDownload });
+  } catch (err) {
+    // 7. General Error Catch
+    console.error("Internal server error in createDownload:", err);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};

@@ -11,12 +11,9 @@ const supabase = connectSupabase();
 // ---------------- CREATE ORDER ----------------
 export const createOrder = async (req, res) => {
   try {
-    const { fileId } = req.body;
+    const { fileId, price: overridePrice } = req.body; // ✅ accept price override
     if (!fileId) return res.status(400).json({ message: "fileId required" });
 
-    console.log("Received fileId:", fileId);
-
-    console.log("Fetching file from Supabase:", fileId);
     const { data: file, error } = await supabase
       .from("files")
       .select("id, name, price, gdrive_url, gdrive_file_id")
@@ -27,7 +24,12 @@ export const createOrder = async (req, res) => {
       console.error("createOrder file fetch error:", error?.message);
       return res.status(404).json({ message: "File not found" });
     }
-    console.log("File fetched:", file);
+
+    // ✅ Use override price if provided, otherwise use file.price
+    const finalPrice =
+      overridePrice !== undefined
+        ? Number(overridePrice)
+        : Number(file.price || 0);
 
     const payload = {
       intent: "CAPTURE",
@@ -35,7 +37,7 @@ export const createOrder = async (req, res) => {
         {
           amount: {
             currency_code: "USD",
-            value: Number(file.price || 0).toFixed(2),
+            value: finalPrice.toFixed(2),
           },
           description: `Purchase: ${file.name}`,
           custom_id: file.id,
@@ -46,14 +48,12 @@ export const createOrder = async (req, res) => {
         cancel_url: `${process.env.FRONTEND_URL}/payment/${fileId}`,
       },
     };
-    console.log("Creating PayPal order with payload:", payload);
 
     const order = await client().execute({
       endpoint: "/v2/checkout/orders",
       requestBody: payload,
     });
 
-    console.log("PayPal order created:", order.result.id);
     return res.json({ id: order.result.id });
   } catch (err) {
     console.error("createOrder error:", err);
@@ -62,125 +62,6 @@ export const createOrder = async (req, res) => {
 };
 
 // ---------------- CAPTURE ORDER ----------------
-// export const captureOrder = async (req, res) => {
-//   try {
-//     const { orderId, fileId } = req.body;
-//     if (!orderId || !fileId) {
-//       console.error("Missing orderId or fileId in request body");
-//       return res.status(400).json({ message: "Missing params" });
-//     }
-//     if (!req.user || !req.user.id) {
-//       console.error("Authentication required: user not found in request");
-//       return res.status(401).json({ message: "Authentication required" });
-//     }
-
-//     console.log("Capturing PayPal order:", orderId);
-
-//     // Step 1: Capture the order via PayPal
-//     const capture = await client().execute({
-//       endpoint: `/v2/checkout/orders/${orderId}/capture`,
-//     });
-
-//     console.log("Raw PayPal capture response:", capture);
-
-//     if (!capture?.result) {
-//       console.error("No result returned from PayPal capture");
-//       return res.status(500).json({ message: "PayPal capture failed" });
-//     }
-
-//     const status = capture.result.status;
-//     console.log("Order capture status:", status);
-
-//     let downloadToken = null;
-//     let paymentId = null;
-
-//     const payerEmail =
-//       capture.result.payer?.email_address ||
-//       req.user.email ||
-//       "unknown@example.com";
-
-//     // Step 2: Only insert payment & download if COMPLETED
-//     if (status === "COMPLETED") {
-//       const captureUnit = capture.result.purchase_units?.[0];
-//       const captureObj = captureUnit?.payments?.captures?.[0];
-//       const amount =
-//         captureObj?.amount?.value ?? captureUnit?.amount?.value ?? "0";
-
-//       console.log("Captured amount:", amount);
-
-//       // Step 3: Insert payment row
-//       const { data: insertedPayments, error: payErr } = await supabase
-//         .from("payments")
-//         .insert([
-//           {
-//             user_id: req.user.id,
-//             file_id: fileId,
-//             paypal_order_id: orderId,
-//             amount,
-//             status: "completed",
-//             payment_method: "paypal",
-//             payer_email: payerEmail,
-//           },
-//         ])
-//         .select("*")
-//         .single();
-
-//       if (payErr) {
-//         console.error("Supabase insert payment error:", payErr);
-//         return res
-//           .status(500)
-//           .json({ message: "Failed to insert payment row" });
-//       }
-
-//       paymentId = insertedPayments.id;
-//       console.log("Inserted payment ID:", paymentId);
-
-//       // Step 4: Insert download row
-//       const token = crypto.randomBytes(24).toString("hex");
-//       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-//       const { error: dlErr } = await supabase.from("downloads").insert([
-//         {
-//           user_id: req.user.id,
-//           file_id: fileId,
-//           download_url: token,
-//           downloaded: false,
-//           download_count: 0,
-//           expires_at: expiresAt,
-//           payment_id: paymentId,
-//         },
-//       ]);
-
-//       if (dlErr) {
-//         console.error("Supabase insert download error:", dlErr);
-//         return res
-//           .status(500)
-//           .json({ message: "Failed to insert download row" });
-//       }
-
-//       downloadToken = token;
-//       console.log("Download token created:", downloadToken);
-//     } else {
-//       console.warn("PayPal capture status not completed:", status);
-//       await supabase.from("payments").insert([
-//         {
-//           user_id: req.user.id,
-//           file_id: fileId,
-//           paypal_order_id: orderId,
-//           amount: 0,
-//           status: status.toLowerCase(),
-//           payment_method: "paypal",
-//           payer_email: payerEmail,
-//         },
-//       ]);
-//     }
-
-//     return res.json({ status, downloadToken });
-//   } catch (err) {
-//     console.error("captureOrder error:", err);
-//     return res.status(500).json({ message: "Error capturing payment" });
-//   }
-// };
 
 export const captureOrder = async (req, res) => {
   try {
@@ -194,14 +75,10 @@ export const captureOrder = async (req, res) => {
       return res.status(401).json({ message: "Authentication required" });
     }
 
-    console.log("Capturing PayPal order:", orderId);
-
     // Step 1: Capture the order via PayPal
     const capture = await client().execute({
       endpoint: `/v2/checkout/orders/${orderId}/capture`,
     });
-
-    console.log("Raw PayPal capture response:", capture);
 
     if (!capture?.result) {
       console.error("No result returned from PayPal capture");
@@ -209,7 +86,6 @@ export const captureOrder = async (req, res) => {
     }
 
     const status = capture.result.status;
-    console.log("Order capture status:", status);
 
     let downloadToken = null;
     let paymentId = null;
@@ -224,8 +100,6 @@ export const captureOrder = async (req, res) => {
       const captureObj = captureUnit?.payments?.captures?.[0];
       const amount =
         captureObj?.amount?.value ?? captureUnit?.amount?.value ?? "0";
-
-      console.log("Captured amount:", amount);
 
       // Step 2: Insert payment row
       const { data: insertedPayments, error: payErr } = await supabase
@@ -252,7 +126,6 @@ export const captureOrder = async (req, res) => {
       }
 
       paymentId = insertedPayments.id;
-      console.log("Inserted payment ID:", paymentId);
 
       // Step 3: Insert download row
       const token = crypto.randomBytes(24).toString("hex");
@@ -278,7 +151,6 @@ export const captureOrder = async (req, res) => {
       }
 
       downloadToken = token;
-      console.log("Download token created:", downloadToken);
 
       // Step 4: Send payment success email
       try {
@@ -327,7 +199,7 @@ export const captureOrder = async (req, res) => {
     console.error("captureOrder error:", err);
     return res.status(500).json({ message: "Error capturing payment" });
   }
-};  
+};
 
 // ---------------- CHECK PAYMENT ----------------
 export const checkPayment = async (req, res) => {
@@ -354,5 +226,106 @@ export const checkPayment = async (req, res) => {
   } catch (err) {
     console.error("checkPayment error:", err);
     return res.status(500).json({ message: "Failed to check payment" });
+  }
+};
+
+// controllers/paymentsController.js
+export const retryCaptureOrder = async (req, res) => {
+  try {
+    const { orderId, fileId, paymentId, downloadId } = req.body;
+    if (!orderId || !fileId || !paymentId || !downloadId) {
+      return res.status(400).json({ message: "Missing params" });
+    }
+    if (!req.user?.id) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    // Step 1: Capture order at PayPal
+    const capture = await client().execute({
+      endpoint: `/v2/checkout/orders/${orderId}/capture`,
+    });
+    const status = capture?.result?.status;
+    if (status !== "COMPLETED") {
+      await supabase
+        .from("payments")
+        .update({ status: status.toLowerCase() })
+        .eq("id", paymentId);
+      return res.json({ status });
+    }
+
+    const captureUnit = capture.result.purchase_units?.[0];
+    const captureObj = captureUnit?.payments?.captures?.[0];
+    const amount =
+      captureObj?.amount?.value ?? captureUnit?.amount?.value ?? "0";
+    const payerEmail = capture.result.payer?.email_address || req.user.email;
+
+    // Step 2: Update old payment row
+    const { error: payErr, data: paymentData } = await supabase
+      .from("payments")
+      .update({
+        paypal_order_id: orderId,
+        amount,
+        status: "completed",
+        payment_method: "paypal",
+        payer_email: payerEmail,
+      })
+      .eq("id", paymentId)
+      .select()
+      .single();
+
+    if (payErr) {
+      console.error("retryCaptureOrder update payment error:", payErr);
+      return res.status(500).json({ message: "Failed to update payment row" });
+    }
+
+    // Step 3: Update old download row
+    const token = crypto.randomBytes(24).toString("hex");
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    const { error: dlErr } = await supabase
+      .from("downloads")
+      .update({
+        download_url: token,
+        downloaded: false,
+        download_count: 0,
+        expires_at: expiresAt,
+      })
+      .eq("id", downloadId);
+
+    if (dlErr) {
+      console.error("retryCaptureOrder update download error:", dlErr);
+      return res.status(500).json({ message: "Failed to update download row" });
+    }
+    // Step 4: Send payment success email
+    try {
+      const [{ data: fileDetails }, { data: userDetails }] = await Promise.all([
+        supabase.from("files").select("*").eq("id", fileId).single(),
+        supabase.from("users").select("*").eq("id", req.user.id).single(),
+      ]);
+
+      if (fileDetails && userDetails && paymentData) {
+        const filePath = await sendPaymentSuccessEmail(
+          userDetails,
+          paymentData,
+          fileDetails
+        );
+
+        if (filePath) {
+          fs.unlink(filePath, (err) => {
+            if (err) console.error("Error deleting temp invoice file:", err);
+          });
+        }
+      }
+    } catch (emailError) {
+      console.error(
+        "Error sending payment success email or fetching details:",
+        emailError
+      );
+    }
+
+    return res.json({ status: "COMPLETED", downloadToken: token });
+  } catch (err) {
+    console.error("retryCaptureOrder error:", err);
+    res.status(500).json({ message: "Retry payment failed" });
   }
 };

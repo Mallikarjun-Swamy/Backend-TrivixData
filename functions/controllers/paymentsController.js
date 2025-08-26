@@ -11,7 +11,7 @@ const supabase = connectSupabase();
 // ---------------- CREATE ORDER ----------------
 export const createOrder = async (req, res) => {
   try {
-    const { fileId } = req.body;
+    const { fileId, price: overridePrice } = req.body; // ✅ accept price override
     if (!fileId) return res.status(400).json({ message: "fileId required" });
 
     const { data: file, error } = await supabase
@@ -25,13 +25,19 @@ export const createOrder = async (req, res) => {
       return res.status(404).json({ message: "File not found" });
     }
 
+    // ✅ Use override price if provided, otherwise use file.price
+    const finalPrice =
+      overridePrice !== undefined
+        ? Number(overridePrice)
+        : Number(file.price || 0);
+
     const payload = {
       intent: "CAPTURE",
       purchase_units: [
         {
           amount: {
             currency_code: "USD",
-            value: Number(file.price || 0).toFixed(2),
+            value: finalPrice.toFixed(2),
           },
           description: `Purchase: ${file.name}`,
           custom_id: file.id,
@@ -54,6 +60,8 @@ export const createOrder = async (req, res) => {
     return res.status(500).json({ message: "Failed to create order" });
   }
 };
+
+// ---------------- CAPTURE ORDER ----------------
 
 export const captureOrder = async (req, res) => {
   try {
@@ -218,5 +226,106 @@ export const checkPayment = async (req, res) => {
   } catch (err) {
     console.error("checkPayment error:", err);
     return res.status(500).json({ message: "Failed to check payment" });
+  }
+};
+
+// controllers/paymentsController.js
+export const retryCaptureOrder = async (req, res) => {
+  try {
+    const { orderId, fileId, paymentId, downloadId } = req.body;
+    if (!orderId || !fileId || !paymentId || !downloadId) {
+      return res.status(400).json({ message: "Missing params" });
+    }
+    if (!req.user?.id) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    // Step 1: Capture order at PayPal
+    const capture = await client().execute({
+      endpoint: `/v2/checkout/orders/${orderId}/capture`,
+    });
+    const status = capture?.result?.status;
+    if (status !== "COMPLETED") {
+      await supabase
+        .from("payments")
+        .update({ status: status.toLowerCase() })
+        .eq("id", paymentId);
+      return res.json({ status });
+    }
+
+    const captureUnit = capture.result.purchase_units?.[0];
+    const captureObj = captureUnit?.payments?.captures?.[0];
+    const amount =
+      captureObj?.amount?.value ?? captureUnit?.amount?.value ?? "0";
+    const payerEmail = capture.result.payer?.email_address || req.user.email;
+
+    // Step 2: Update old payment row
+    const { error: payErr, data: paymentData } = await supabase
+      .from("payments")
+      .update({
+        paypal_order_id: orderId,
+        amount,
+        status: "completed",
+        payment_method: "paypal",
+        payer_email: payerEmail,
+      })
+      .eq("id", paymentId)
+      .select()
+      .single();
+
+    if (payErr) {
+      console.error("retryCaptureOrder update payment error:", payErr);
+      return res.status(500).json({ message: "Failed to update payment row" });
+    }
+
+    // Step 3: Update old download row
+    const token = crypto.randomBytes(24).toString("hex");
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    const { error: dlErr } = await supabase
+      .from("downloads")
+      .update({
+        download_url: token,
+        downloaded: false,
+        download_count: 0,
+        expires_at: expiresAt,
+      })
+      .eq("id", downloadId);
+
+    if (dlErr) {
+      console.error("retryCaptureOrder update download error:", dlErr);
+      return res.status(500).json({ message: "Failed to update download row" });
+    }
+    // Step 4: Send payment success email
+    try {
+      const [{ data: fileDetails }, { data: userDetails }] = await Promise.all([
+        supabase.from("files").select("*").eq("id", fileId).single(),
+        supabase.from("users").select("*").eq("id", req.user.id).single(),
+      ]);
+
+      if (fileDetails && userDetails && paymentData) {
+        const filePath = await sendPaymentSuccessEmail(
+          userDetails,
+          paymentData,
+          fileDetails
+        );
+
+        if (filePath) {
+          fs.unlink(filePath, (err) => {
+            if (err) console.error("Error deleting temp invoice file:", err);
+          });
+        }
+      }
+    } catch (emailError) {
+      console.error(
+        "Error sending payment success email or fetching details:",
+        emailError
+      );
+    }
+
+    return res.json({ status: "COMPLETED", downloadToken: token });
+  } catch (err) {
+    console.error("retryCaptureOrder error:", err);
+    res.status(500).json({ message: "Retry payment failed" });
   }
 };
