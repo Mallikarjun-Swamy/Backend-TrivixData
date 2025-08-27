@@ -11,7 +11,7 @@ export const sendAccountDeletionEmail = async (userEmail, userName) => {
     
     <p>All of your data, including your profile information and purchase history, has been removed from our system. If you change your mind and would like to use our services again in the future, you will need to create a new account.</p>
 
-    <p style="margin-top: 20px;">If you did not request this action, please contact our support team immediately at <a href="mailto:support@trivixdata.com" style="color: #007bff; text-decoration: none;">support@trivixdata.com</a>.</p>
+    <p style="margin-top: 20px;">If you did not request this action, please contact our support team immediately at <a href="mailto:support@trivixdatasolutions.com" style="color: #007bff; text-decoration: none;">support@trivixdatasolutions.com</a>.</p>
     
     <p>Thank you for using our services.</p>
     <p>The Trivix Team</p>

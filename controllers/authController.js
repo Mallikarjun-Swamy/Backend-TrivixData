@@ -979,29 +979,118 @@ export const googleAuthCallback = async (req, res) => {
 // ------------------------------
 // LOGIN USER
 // ------------------------------
-export const loginUser = async (req, res) => {
-  try {
-    const { email, password } = req.body;
 
-    const { data: user } = await supabase
+export const loginUser = async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res
+      .status(400)
+      .json({ message: "Email and password are required." });
+  }
+
+  try {
+    // CRITICAL: Use the service role key to securely fetch the user.
+    // This bypasses RLS and ensures the lookup is reliable on the backend.
+    const { data: user, error: userError } = await supabase
       .from("users")
       .select("*")
       .eq("email", email)
       .single();
 
-    if (!user) return res.status(404).json({ message: "User not found" });
+    // SECURITY FIX: Return a generic message for both "user not found"
+    // and "password mismatch" to prevent user enumeration.
+    if (userError || !user) {
+      console.error(`Login failed for email: ${email}. User not found.`);
+      return res.status(400).json({ message: "Invalid credentials." });
+    }
 
+    // Account Lockout Logic (re-structured for clarity)
+    if (user.account_locked && user.role !== "admin") {
+      const lockDurationMs = 12 * 60 * 60 * 1000;
+      const lockedAt = user.lock_time ? new Date(user.lock_time) : null;
+      const now = new Date();
+      console.log("lockDurationMs", lockDurationMs);
+      console.log("lockedAt", lockedAt);
+      console.log("now", now);
+
+      // Check if the lock duration has expired
+      if (lockedAt && now - lockedAt >= lockDurationMs) {
+        // Lock expired, auto-reset the account.
+        await supabase
+          .from("users")
+          .update({
+            account_locked: false,
+            failed_login_attempts: 0,
+            lock_time: null,
+          })
+          .eq("id", user.id);
+
+        // Update the user object in memory for the rest of the function's execution
+        user.account_locked = false;
+        user.failed_login_attempts = 0;
+      } else {
+        // Account is still locked.
+        return res.status(403).json({
+          message:
+            "Your account is locked due to multiple failed attempts. Please try again after 12 Hrs or contact Support.",
+        });
+      }
+    }
+
+    // Password comparison
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch)
-      return res.status(400).json({ message: "Invalid credentials" });
 
-    if (!user.is_verified)
-      return res.status(404).json({
-        message: "Email Not verified, Please Verify Your Email Before Login",
+    if (!isMatch) {
+      // Failed login attempt logic
+      const failedAttempts = (user.failed_login_attempts || 0) + 1;
+      const shouldLockAccount = failedAttempts >= 5;
+
+      const updateData = {
+        failed_login_attempts: failedAttempts,
+      };
+
+      if (shouldLockAccount) {
+        updateData.account_locked = true;
+        updateData.lock_time = new Date().toISOString();
+      }
+
+      const { error: err } = await supabase
+        .from("users")
+        .update(updateData)
+        .eq("id", user.id);
+
+      if (err) {
+        console.error("Supabase update error:", err);
+      }
+
+      // SECURITY FIX: Always return a generic message on failed login attempt.
+      return res.status(400).json({ message: "Invalid credentials." });
+    }
+
+    // Check email verification.
+    if (!user.is_verified) {
+      return res.status(403).json({
+        message:
+          "Email not verified. Please verify your email before logging in.",
       });
+    }
 
+    // SUCCESSFUL LOGIN: Reset attempts and generate tokens.
+    // FIX: Remove redundant `if` check. This update should always run on success.
+    await supabase
+      .from("users")
+      .update({
+        failed_login_attempts: 0,
+        account_locked: false,
+        lock_time: null,
+      })
+      .eq("id", user.id);
+
+    // Remove old refresh tokens to prevent token reuse.
     await supabase.from("refresh_tokens").delete().eq("user_id", user.id);
 
+    // Generate new access and refresh tokens.
     const accessToken = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       JWT_SECRET,
@@ -1014,10 +1103,19 @@ export const loginUser = async (req, res) => {
       {
         user_id: user.id,
         token: refreshToken,
-        expires_at: new Date(Date.now() + REFRESH_TOKEN_EXPIRY_MS),
+        expires_at: new Date(
+          Date.now() + REFRESH_TOKEN_EXPIRY_MS
+        ).toISOString(),
       },
     ]);
 
+    // Update last login timestamp
+    await supabase
+      .from("users")
+      .update({ last_login: new Date().toISOString() })
+      .eq("id", user.id);
+
+    // Set secure HTTP-only cookies.
     res.cookie("access_token", accessToken, {
       httpOnly: true,
       maxAge: 15 * 60 * 1000,
@@ -1034,8 +1132,8 @@ export const loginUser = async (req, res) => {
 
     res.json({ message: "Login successful", user });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Login failed" });
+    console.error("Server-side error during login:", err);
+    res.status(500).json({ message: "An unexpected error occurred." });
   }
 };
 

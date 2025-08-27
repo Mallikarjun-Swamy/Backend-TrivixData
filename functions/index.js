@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
+import rateLimit from "express-rate-limit";
 import authRoutes from "./routes/authRoutes.js";
 import { connectSupabase } from "./db/supabase.js";
 import profileRoutes from "./routes/profileRoutes.js";
@@ -13,7 +14,6 @@ import { initGDrive } from "./utils/gdriveClient.js";
 import sampleRoutes from "./routes/sampleRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
 import newsLetterController from "./controllers/newsLetterController.js";
-import { https } from "firebase-functions";
 
 dotenv.config();
 const app = express();
@@ -42,7 +42,19 @@ initGDrive();
 
 // ✅ Connect to Supabase
 const supabase = connectSupabase();
-app.set("supabase", supabase); // Store in app for access in routes/controllers
+app.set("supabase", supabase);
+
+// === Add the Rate Limiter here ===
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per `window` (15 minutes)
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  message: "Too many requests from this IP, please try again after 15 minutes.",
+});
+
+// Apply the rate limiter to all requests
+app.use(apiLimiter);
 
 // Routes
 

@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
     is_verified boolean DEFAULT false,
     role text DEFAULT 'user',        -- user, admin
     last_login timestamp with time zone,
+    lock_time timestamp null,
     failed_login_attempts int DEFAULT 0,
     account_locked boolean DEFAULT false,
     

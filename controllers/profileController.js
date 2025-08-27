@@ -53,11 +53,15 @@ export const deleteAccount = async (req, res) => {
     // ✅ STEP 1: Fetch the user's name from the database
     // This assumes your users table is named 'users' and the name column is 'name'
     const { data: user, error: fetchError } = await supabase
-      .from("full_name")
+      .from("users")
       .select("*")
       .eq("id", userId)
       .single();
-    console.log(user);
+
+    if (user.role === "admin") {
+      console.error("Can't Delete Admin Account:");
+      return res.status(400).json({ message: "Can't Delete Admin Account." });
+    }
 
     if (fetchError || !user) {
       console.error("Failed to fetch user data for deletion:", fetchError);

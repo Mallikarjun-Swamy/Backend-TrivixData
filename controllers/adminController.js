@@ -56,7 +56,9 @@ export const fetchAllUsers = async (req, res) => {
   try {
     const { data: users, error } = await supabase
       .from("users")
-      .select("id, full_name, email, role, is_verified, created_at")
+      .select(
+        "id, full_name, email, role, is_verified,last_login,failed_login_attempts,account_locked,lock_time, phone,state,country, created_at"
+      )
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -98,7 +100,15 @@ export const deleteUser = async (req, res) => {
 export const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { full_name, email, role, is_verified } = req.body;
+    const {
+      full_name,
+      email,
+      role,
+      is_verified,
+      failed_login_attempts,
+      account_locked,
+      lock_time,
+    } = req.body;
 
     const updateData = {};
 
@@ -106,6 +116,11 @@ export const updateUser = async (req, res) => {
     if (email !== undefined) updateData.email = email;
     if (role !== undefined) updateData.role = role;
     if (is_verified !== undefined) updateData.is_verified = is_verified;
+    if (failed_login_attempts !== undefined)
+      updateData.failed_login_attempts = failed_login_attempts;
+    if (account_locked !== undefined)
+      updateData.account_locked = account_locked;
+    if (lock_time !== undefined) updateData.lock_time = lock_time;
 
     const { data, error } = await supabase
       .from("users")
