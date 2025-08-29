@@ -13,7 +13,8 @@ export const getUserDownloads = async (req, res) => {
     const { data: downloads, error } = await supabase
       .from("downloads")
       .select(`*, files:files(name, file_ext)`)
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
 
     if (error) throw error;
 
@@ -33,7 +34,8 @@ export const getUserPayments = async (req, res) => {
     const { data: payments, error } = await supabase
       .from("payments")
       .select("*")
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
 
     if (error) throw error;
 

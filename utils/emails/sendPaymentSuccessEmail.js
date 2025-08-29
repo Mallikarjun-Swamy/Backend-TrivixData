@@ -3,7 +3,7 @@ import { emailTemplate } from "./emailTemplate.js";
 import { generateInvoice } from "../invoiceGenerator.js";
 
 export const sendPaymentSuccessEmail = async (user, payment, file) => {
-  const invoiceNumber = `INV-${Date.now()}`;
+  const invoiceNumber = `INV-TX${Date.now()}`;
   const invoicePath = await generateInvoice({
     invoiceNumber,
     user,
@@ -11,7 +11,7 @@ export const sendPaymentSuccessEmail = async (user, payment, file) => {
     file,
   });
 
-  const myDownloadsLink = `${process.env.FRONTEND_URL}/profile?tab=downloads`;
+  const myDownloadsLink = `${process.env.FRONTEND_URL}/profile/downloads`;
 
   const bodyContent = `
     <p>Hello ${user.full_name},</p>

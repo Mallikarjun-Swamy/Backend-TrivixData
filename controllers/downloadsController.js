@@ -92,7 +92,6 @@ export const downloadFile = async (req, res) => {
       } else {
         try {
           await sendFileDownloadSuccessEmail(userDetails, file);
-          console.log("Download success email sent for", userDetails.full_name);
         } catch (emailError) {
           console.error("Error in sending Email:", emailError);
         }

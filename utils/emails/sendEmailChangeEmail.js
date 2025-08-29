@@ -32,5 +32,4 @@ export const sendEmailChangeEmail = async (to, userName, verificationUrl) => {
   };
 
   await transporter.sendMail(mailOptions);
-  console.log("Email change verification sent");
 };

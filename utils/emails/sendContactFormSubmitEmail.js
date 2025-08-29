@@ -40,7 +40,6 @@ export const sendContactFormEmail = async (
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log("Contact form email sent successfully!");
   } catch (error) {
     console.error("Error sending contact form email:", error);
     throw new Error("Failed to send contact form email.");

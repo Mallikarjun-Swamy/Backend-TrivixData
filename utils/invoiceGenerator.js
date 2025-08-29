@@ -319,6 +319,20 @@ export const generateInvoice = async (invoiceData) => {
     year: "numeric",
   }).format(new Date());
 
+  let address = "";
+
+  // Only build address if city, state, and country are all present
+  if (user.city && user.state && user.country) {
+    let parts = [];
+
+    if (user.address) parts.push(user.address);
+    parts.push(user.city, user.state); // required
+    if (user.zip_code) parts.push(user.zip_code);
+    parts.push(user.country); // required
+
+    address = parts.filter(Boolean).join(", ");
+  }
+  //--------------------------------------------------------------------------------------
   // === HEADER SECTION ===
   const headerHeight = 100;
   // drawRoundedRect(MARGIN - 15, MARGIN, CONTENT_WIDTH + 30, headerHeight, 4);
@@ -382,22 +396,11 @@ export const generateInvoice = async (invoiceData) => {
     .fontSize(10)
     .fillColor(COLORS.text)
     .text(user.full_name, MARGIN, infoY + 15)
-    .text(user.email, MARGIN, infoY + 30)
-    .text(
-      `${
-        user.address +
-          ", " +
-          user.city +
-          ", " +
-          user.state +
-          " " +
-          user.zip_code +
-          " " +
-          user.country || ""
-      }`,
-      MARGIN,
-      infoY + 45
-    );
+    .text(user.email, MARGIN, infoY + 30);
+
+  if (address) {
+    doc.text(address, MARGIN, infoY + 45);
+  }
 
   // From (Right side)
   doc
@@ -426,7 +429,7 @@ export const generateInvoice = async (invoiceData) => {
       }
     )
     .text(
-      `22nd Street, Sacramento, CA 95811 USA`,
+      `22nd Street, Sacramento, CA, 95811, USA`,
       PAGE_WIDTH - MARGIN - 200,
       infoY + 45,
       {
@@ -567,7 +570,7 @@ export const generateInvoice = async (invoiceData) => {
     .text(
       "This invoice serves as a record of your payment and is a testament to the successful completion of the ",
       MARGIN,
-      contentY + 80,
+      contentY + 100,
       {
         width: CONTENT_WIDTH,
       }
@@ -575,7 +578,7 @@ export const generateInvoice = async (invoiceData) => {
     .text(
       "transaction. For all billing and accounts-related inquiries, please contact us at the details provided above.",
       MARGIN,
-      contentY + 95,
+      contentY + 115,
       {
         width: CONTENT_WIDTH,
       }
@@ -605,7 +608,7 @@ export const generateInvoice = async (invoiceData) => {
     .fontSize(9)
     .fillColor(COLORS.text)
     .text(
-      "Trivix Data Solutions - 22nd Street, Sacramento, CA 95811 USA • All Rights Reserved",
+      "Trivix Data Solutions - 22nd Street, Sacramento, CA, 95811, USA • All Rights Reserved",
       MARGIN,
       footerY,
       { align: "center", width: CONTENT_WIDTH }

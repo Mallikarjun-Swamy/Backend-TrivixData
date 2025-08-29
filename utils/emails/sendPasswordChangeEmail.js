@@ -36,5 +36,4 @@ export const sendPasswordChangeEmail = async (
   };
 
   await transporter.sendMail(mailOptions);
-  console.log("Password change verification sent");
 };

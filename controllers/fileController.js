@@ -1,9 +1,10 @@
+import dotenv from "dotenv";
 import { connectSupabase } from "../db/supabase.js";
 import fs from "fs";
 import { getDriveClient } from "../utils/gdriveClient.js";
 
 const supabase = connectSupabase();
-
+dotenv.config();
 /**
  * Middleware to check if the authenticated user is an admin.
  * Assumes authMiddleware has already run and populated req.user.
@@ -220,7 +221,6 @@ export const deleteFile = async (req, res) => {
     try {
       if (checkFileExistsInDrive(gid)) {
         await drive.files.delete({ fileId: file.gdrive_file_id });
-        console.log("File deleted from Google Drive");
       }
     } catch (driveErr) {
       console.error("Failed to delete file from Drive:", driveErr);
@@ -229,7 +229,6 @@ export const deleteFile = async (req, res) => {
     }
 
     await supabase.from("files").delete().eq("id", id);
-    console.log("File deleted from DB");
 
     res.json({ success: true });
   } catch (err) {

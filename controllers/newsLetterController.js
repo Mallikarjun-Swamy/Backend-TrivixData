@@ -1,9 +1,10 @@
+import dotenv from "dotenv";
 import express from "express";
 const router = express.Router();
 import { google } from "googleapis";
 // ✅ Import getOAuth2Client instead of getDriveClient for auth purposes
 import { initGDrive, getOAuth2Client } from "../utils/gdriveClient.js";
-
+dotenv.config();
 // ✅ Ensure initGDrive() is called once globally in your app's entry point.
 // If it's not, calling it here will initialize the client when this router file is imported.
 // It's safer to have a single initialization point for all Google API clients.

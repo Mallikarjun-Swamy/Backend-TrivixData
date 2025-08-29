@@ -1,6 +1,8 @@
+import dotenv from "dotenv";
 import fs from "fs";
 import { getDriveClient } from "../utils/gdriveClient.js";
 
+dotenv.config();
 export const fetchSampleFile = async (req, res) => {
   try {
     const { fileName, ext } = req.params;

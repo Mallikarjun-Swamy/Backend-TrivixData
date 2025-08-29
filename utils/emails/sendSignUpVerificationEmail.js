@@ -37,5 +37,4 @@ export const sendSignUpVerificationEmail = async (
   };
 
   await transporter.sendMail(mailOptions);
-  console.log("Verification email sent");
 };

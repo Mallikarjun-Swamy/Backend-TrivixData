@@ -8,7 +8,7 @@ export const sendFileDownloadSuccessEmail = async (user, file) => {
     <p>You can manage and re-download this file at any time by visiting the **My Downloads** section of your account. We recommend saving this email for your records.</p>
     
     <div style="text-align: center; margin: 30px 0;">
-      <a href="${process.env.FRONTEND_URL}/dashboard/downloads" target="_blank" style="
+      <a href="${process.env.FRONTEND_URL}/profile/downloads" target="_blank" style="
         background-color: #007bff;
         color: #ffffff;
         text-decoration: none;
@@ -31,6 +31,4 @@ export const sendFileDownloadSuccessEmail = async (user, file) => {
     subject: `Your Download for "${file.name}" is Complete`,
     html: emailTemplate("Download Complete", bodyContent),
   });
-
-  console.log("File download success email sent");
 };

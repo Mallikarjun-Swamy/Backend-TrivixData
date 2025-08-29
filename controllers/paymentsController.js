@@ -1,11 +1,12 @@
 //-------------------------------------------------------------------------------------------------------
-
+import dotenv from "dotenv";
 import fs from "fs";
 import client from "../utils/paypalClient.js";
 import { connectSupabase } from "../db/supabase.js";
 import crypto from "crypto";
 import { sendPaymentSuccessEmail } from "../utils/emails/sendPaymentSuccessEmail.js";
 
+dotenv.config();
 const supabase = connectSupabase();
 
 // ---------------- CREATE ORDER ----------------
